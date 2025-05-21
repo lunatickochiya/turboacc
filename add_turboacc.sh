@@ -51,13 +51,13 @@ if [ -d "./package/turboacc" ]; then
     fi
 fi
 
-git clone --depth=1 --single-branch https://github.com/fullcone-nat-nftables/nft-fullcone "$TMPDIR/turboacc/nft-fullcone" || exit 1
 git clone --depth=1 --single-branch https://github.com/chenmozhijin/turboacc "$TMPDIR/turboacc/turboacc" || exit 1
 if [ -n "$LOCAL_PACKAGE" ]; then
     echo "Using local package: $LOCAL_PACKAGE"
     cp -RT "$LOCAL_PACKAGE" "$TMPDIR/package" || exit 1
 else
     git clone --depth=1 --single-branch --branch "package" https://github.com/chenmozhijin/turboacc "$TMPDIR/package" || exit 1
+    cp -r "$TMPDIR/package/nft-fullcone" "$TMPDIR/turboacc/nft-fullcone" || exit 1
 fi
 
 cp -r "$TMPDIR/turboacc/turboacc/luci-app-turboacc" "$TMPDIR/turboacc/luci-app-turboacc"
