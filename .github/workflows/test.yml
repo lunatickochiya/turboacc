@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       max-parallel: 8
       matrix:
-        tag_branche: [master,openwrt-24.10,openwrt-23.05,openwrt-22.03]
+        tag_branche: [master,openwrt-25.12,openwrt-24.10,openwrt-23.05,openwrt-22.03]
         compile: [FLOW_OFFLOAD,SHORTCUT_FE,SHORTCUT_FE_CM,SHORTCUT_FE_DRV]
     steps:
           - name: 将存储库签出到运行器
