@@ -196,10 +196,16 @@ jobs:
             fail-fast: false
             max-parallel: 10
             matrix:
-              tag_branche: [master,openwrt-24.10,openwrt-23.05,openwrt-22.03]
+              tag_branche: [master,openwrt-25.12,openwrt-24.10,openwrt-23.05,openwrt-22.03]
               compile: [FLOW_OFFLOAD,SHORTCUT_FE,SHORTCUT_FE_CM,SHORTCUT_FE_DRV]
         runs-on: ubuntu-22.04
         steps:
+          - name: 将存储库签出到运行器
+            uses: actions/checkout@v4
+            with:
+                ref: 'luci'
+                path: luci-app-turboacc
+
           - name: 下载new
             uses: actions/download-artifact@v4
             with:
@@ -209,7 +215,9 @@ jobs:
             run: |
                 mkdir -p turboacc
                 export TURBOACC_PATH="$(pwd)/turboacc"
+                export LUCI_APP_TURBOACC_PATH="$(pwd)/luci-app-turboacc"
                 echo "TURBOACC_PATH=$TURBOACC_PATH" >> $GITHUB_ENV
+                echo "LUCI_APP_TURBOACC_PATH=$LUCI_APP_TURBOACC_PATH" >> $GITHUB_ENV
                 tar xvpfz $GITHUB_WORKSPACE/new.tgz -C $TURBOACC_PATH
 
           - name: 检测
@@ -403,6 +411,7 @@ jobs:
             working-directory: ${{ env.OPENWRT_ROOT_PATH }}
             if: ${{ steps.cache-toolchain.outputs.cache-hit != 'true' }}
             run: |
+              make toolchain/kernel-headers/compile V=s
               make toolchain/install -j $(($(nproc)+1)) || make toolchain/install -j1 V=s
               echo "======================="
               echo "空间使用情况:"
@@ -448,24 +457,24 @@ jobs:
               name: packages-${{ matrix.tag_branche }}-${{ matrix.compile }}
               path: ${{ env.OPENWRT_ROOT_PATH }}/artifact/**
     
-          - name: 收集日志
-            if: success() || failure()
+          - name: 收集调试信息
+            if: always()
+            env:
+              JOB_STATUS: ${{ job.status }}
+              MATRIX_TAG_BRANCHE: ${{ matrix.tag_branche }}
+              MATRIX_COMPILE: ${{ matrix.compile }}
+              DEBUG_OUTPUT_PATH: ${{ github.workspace }}/openwrt-debug
             run: |
-              mkdir -p logs
-              cd logs
-              export LOG_PATH="$(pwd)"
-              echo "LOG_PATH=$LOG_PATH" >> $GITHUB_ENV
-              cp -r $OPENWRT_ROOT_PATH/logs $LOG_PATH/openwrt-logs || echo "没有openwrt/logs"
-              cp $OPENWRT_ROOT_PATH/.config $LOG_PATH/openwrt.config || echo "没有openwrt/.config"
-              ls -la $(find $OPENWRT_ROOT_PATH/package/ -type d)  >> $LOG_PATH/package_files.list
-              ls -la $(find $OPENWRT_ROOT_PATH/linux/generic/ -type d)  >> $LOG_PATH/kp_files.list
+              bash "${{ github.workspace }}/luci-app-turboacc/.github/scripts/collect-openwrt-debug.sh"
     
-          - name: 上传日志
-            if: success() || failure()
+          - name: 上传调试信息
+            if: always()
             uses: actions/upload-artifact@v4
             with:
-              name: logs-${{ matrix.tag_branche }}-${{ matrix.compile }}
-              path: "${{ env.LOG_PATH }}"
+              name: debug-${{ matrix.tag_branche }}-${{ matrix.compile }}
+              path: ${{ github.workspace }}/openwrt-debug
+              if-no-files-found: warn
+              retention-days: 14
 
     push: 
         needs: [test,check]

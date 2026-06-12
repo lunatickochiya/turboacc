@@ -229,6 +229,7 @@ jobs:
             working-directory: ${{ env.OPENWRT_ROOT_PATH }}
             if: ${{ steps.cache-toolchain.outputs.cache-hit != 'true' }}
             run: |
+              make toolchain/kernel-headers/compile V=s
               make toolchain/install -j $(($(nproc)+1)) || make toolchain/install -j1 V=s
               echo "======================="
               echo "空间使用情况:"
@@ -274,21 +275,21 @@ jobs:
               name: packages-${{ matrix.tag_branche }}-${{ matrix.compile }}
               path: ${{ env.OPENWRT_ROOT_PATH }}/artifact/**
     
-          - name: 收集日志
-            if: success() || failure()
+          - name: 收集调试信息
+            if: always()
+            env:
+              JOB_STATUS: ${{ job.status }}
+              MATRIX_TAG_BRANCHE: ${{ matrix.tag_branche }}
+              MATRIX_COMPILE: ${{ matrix.compile }}
+              DEBUG_OUTPUT_PATH: ${{ github.workspace }}/openwrt-debug
             run: |
-              mkdir -p logs
-              cd logs
-              export LOG_PATH="$(pwd)"
-              echo "LOG_PATH=$LOG_PATH" >> $GITHUB_ENV
-              cp -r $OPENWRT_ROOT_PATH/logs $LOG_PATH/openwrt-logs || echo "没有openwrt/logs"
-              cp $OPENWRT_ROOT_PATH/.config $LOG_PATH/openwrt.config || echo "没有openwrt/.config"
-              ls -la $(find $OPENWRT_ROOT_PATH/package/ -type d)  >> $LOG_PATH/package_files.list
-              ls -la $(find $OPENWRT_ROOT_PATH/linux/generic/ -type d)  >> $LOG_PATH/kp_files.list
+              bash "${{ github.workspace }}/luci-app-turboacc/.github/scripts/collect-openwrt-debug.sh"
     
-          - name: 上传日志
-            if: success() || failure()
+          - name: 上传调试信息
+            if: always()
             uses: actions/upload-artifact@v4
             with:
-              name: logs-${{ matrix.tag_branche }}-${{ matrix.compile }}
-              path: "${{ env.LOG_PATH }}"
+              name: debug-${{ matrix.tag_branche }}-${{ matrix.compile }}
+              path: ${{ github.workspace }}/openwrt-debug
+              if-no-files-found: warn
+              retention-days: 14
